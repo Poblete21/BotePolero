@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Bote</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .visible {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .loading {
+            font-size: 1.5rem;
+            color: #4ade80;
+        }
+
+        h1, h2 {
+            font-weight: 700;
+        }
+
+        #balance-display {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #4ade80; /* Tailwind green-400 */
+        }
+        
+        #my-share-display {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fcd34d; /* Tailwind amber-300 */
+        }
+
+        .balance-label {
+            font-size: 1.25rem;
+            color: #ccc;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+
+        .btn-green {
+            background-color: #4ade80; /* Tailwind green-400 */
+            color: #1a1a1a;
+        }
+
+        .btn-green:hover {
+            background-color: #22c55e; /* Tailwind green-500 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-red {
+            background-color: #ef4444; /* Tailwind red-500 */
+            color: #fff;
+        }
+
+        .btn-red:hover {
+            background-color: #dc2626; /* Tailwind red-600 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-amber {
+            background-color: #fcd34d; /* Tailwind amber-300 */
+            color: #1a1a1a;
+        }
+        
+        .btn-amber:hover {
+            background-color: #fbbf24; /* Tailwind amber-400 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary {
+            background-color: #4b5563; /* Tailwind gray-600 */
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background-color: #6b7280; /* Tailwind gray-500 */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.5rem;
+            text-align: center;
+            border-radius: 0.5rem;
+            border: 2px solid #4b5563;
+            background-color: #374151; /* Tailwind gray-700 */
+            color: #fff;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+
+        .confirmation-message {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .new-balance-small {
+            font-size: 1rem;
+            color: #ccc;
+        }
+
+        #confirmation-box {
+            background-color: #374151;
+            padding: 15px;
+            border-radius: 0.5rem;
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .history-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 26, 0.95);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .history-panel-visible {
+            display: flex;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #4b5563;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-amount {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .history-date {
+            font-size: 0.8rem;
+            color: #ccc;
+            text-align: right;
+        }
+        
+        .positive-amount {
+            color: #4ade80;
+        }
+        
+        .negative-amount {
+            color: #ef4444;
+        }
+        
+        .pin-input-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .pin-input {
+            width: 50px;
+            height: 50px;
+            font-size: 2rem;
+            text-align: center;
+            border-radius: 0.5rem;
+            border: 2px solid #4b5563;
+            background-color: #374151;
+            color: #fff;
+            -moz-appearance: textfield;
+        }
+        .pin-input::-webkit-outer-spin-button,
+        .pin-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .pin-prompt {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+        
+        .pin-message {
+            margin-top: 10px;
+            color: #ef4444;
+        }
+        
+        #username-select {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.5rem;
+            border-radius: 0.5rem;
+            border: 2px solid #4b5563;
+            background-color: #374151;
+            color: #fff;
+            text-align: center;
+        }
+        
+        #username-select option {
+            background-color: #374151;
+            color: #fff;
+        }
+        
+        .jornada-completa {
+            color: #4ade80; /* Tailwind green-400 */
+        }
+        
+        .media-jornada {
+            color: #fcd34d; /* Tailwind amber-300 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Pantalla de Carga/Inicio de sesión -->
+    <div id="loading-screen" class="screen visible">
+        <div class="loading">Cargando...</div>
+    </div>
+    
+    <!-- Pantalla de PIN y Usuario -->
+    <div id="pin-screen" class="screen">
+        <h2>Acceso al Bote</h2>
+        <div class="input-group">
+            <select id="username-select">
+                <option value="" disabled selected>Selecciona tu nombre</option>
+                <option value="Borja">Borja</option>
+                <option value="Poblete">Poblete</option>
+                <option value="Israel">Israel</option>
+                <option value="Cristobal">Cristobal</option>
+                <option value="Adrián">Adrián</option>
+                <option value="Lorena">Lorena</option>
+            </select>
+        </div>
+        <div class="pin-input-container">
+            <input type="password" id="pin-1" class="pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+            <input type="password" id="pin-2" class="pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+            <input type="password" id="pin-3" class="pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+            <input type="password" id="pin-4" class="pin-input" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <button id="pin-enter-btn" class="btn btn-secondary">Entrar</button>
+        <div id="pin-message" class="pin-message"></div>
+    </div>
+
+    <!-- Pantalla Principal (Menú Bote) -->
+    <div id="main-menu" class="screen">
+        <span class="balance-label">Saldo Actual</span>
+        <div id="balance-display">0.00 €</div>
+        <button id="add-btn" class="btn btn-green">Añadir Bote</button>
+        <button id="subtract-btn" class="btn btn-red">Rectificar</button>
+        <button id="history-btn" class="btn btn-secondary">Ver Historial</button>
+        <button id="my-share-btn" class="btn btn-amber">Mi parte</button>
+        <button id="logout-btn" class="btn btn-secondary">Volver al menú principal</button>
+    </div>
+
+    <!-- Pantalla para Añadir Bote -->
+    <div id="add-menu" class="screen">
+        <h2>Añadir Bote</h2>
+        <div class="input-group">
+            <input type="number" step="0.01" id="add-amount" class="input-field" placeholder="0.00">
+            <button id="add-confirm-btn" class="btn btn-green">Confirmar Añadir</button>
+            <button id="add-cancel-btn" class="btn btn-secondary">Cancelar</button>
+        </div>
+        <div id="confirmation-box-add" class="confirmation-box hidden">
+            <span id="confirmation-message-add" class="confirmation-message"></span>
+            <span id="new-balance-small-add" class="new-balance-small"></span>
+        </div>
+    </div>
+
+    <!-- Pantalla para Rectificar Bote -->
+    <div id="subtract-menu" class="screen">
+        <h2>Rectificar Bote</h2>
+        <div class="input-group">
+            <input type="number" step="0.01" id="subtract-amount" class="input-field" placeholder="0.00">
+            <button id="subtract-confirm-btn" class="btn btn-red">Confirmar Rectificar</button>
+            <button id="subtract-cancel-btn" class="btn btn-secondary">Cancelar</button>
+        </div>
+        <div id="confirmation-box-subtract" class="confirmation-box hidden">
+            <span id="confirmation-message-subtract" class="confirmation-message"></span>
+            <span id="new-balance-small-subtract" class="new-balance-small"></span>
+        </div>
+    </div>
+    
+    <!-- Pantalla de "Mi Parte" -->
+    <div id="my-share-screen" class="screen">
+        <h2>Tu Parte del Bote</h2>
+        <span class="balance-label" id="share-label"></span>
+        <div id="my-share-display">0.00 €</div>
+        <button id="my-share-back-btn" class="btn btn-secondary">Volver</button>
+    </div>
+</div>
+
+<!-- Panel de Historial de Transacciones -->
+<div id="history-panel" class="history-panel">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold">Historial de Transacciones</h2>
+        <button id="close-history-btn" class="btn btn-secondary p-2 leading-none">Cerrar</button>
+    </div>
+    <div id="history-list" class="flex-1">
+        <!-- Las transacciones se insertarán aquí dinámicamente -->
+    </div>
+</div>
+
+<script type="module">
+    // --- Importar las librerías de Firebase ---
+    // Usamos una versión estable del SDK para evitar posibles errores de configuración.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- CONFIGURACIÓN DE FIREBASE (¡AQUÍ DEBES PEGAR TU CONFIGURACIÓN!) ---
+    // Sigue estos pasos para obtener tu configuración:
+    // 1. Ve a la consola de Firebase: https://console.firebase.google.com/
+    // 2. Selecciona tu proyecto o crea uno nuevo.
+    // 3. En la página principal del proyecto, haz clic en el icono "web" (</>) para añadir una aplicación web.
+    // 4. Copia el objeto 'firebaseConfig' y pégalo aquí.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLCVorr3G8IzrlyaTp81IjwXy7ZH-AKFE",
+      authDomain: "boteapp-6fff6.firebaseapp.com",
+      projectId: "boteapp-6fff6",
+      storageBucket: "boteapp-6fff6.firebasestorage.app",
+      messagingSenderId: "375162319169",
+      appId: "1:375162319169:web:2f3402d19984e441e171c0",
+      measurementId: "G-YBH2E8X1KM"
+    };
+
+    // --- Variables de estado y configuración ---
+    let balance = 0;
+    let transactions = [];
+    const userCredentials = {
+        "Borja": "1234",
+        "Poblete": "1234",
+        "Israel": "1234",
+        "Cristobal": "1234",
+        "Adrián": "1234",
+        "Lorena": "1234"
+    };
+    let currentUser = null;
+    const userShares = {
+        "Adrián": 1,
+        "Borja": 2,
+        "Poblete": 2,
+        "Israel": 2,
+        "Cristobal": 2,
+    };
+    const totalShares = 9;
+    
+    // Inicializar Firebase
+    let app;
+    let auth;
+    let db;
+    let userId;
+    
+    // --- Rutas a las colecciones de nivel superior (CORREGIDO) ---
+    const boteCollectionId = "bote";
+    const transactionsCollectionId = "transactions";
+    const boteStateDocId = "bote-state";
+
+    // --- Elementos del DOM ---
+    const loadingScreen = document.getElementById('loading-screen');
+    const pinScreen = document.getElementById('pin-screen');
+    const mainMenu = document.getElementById('main-menu');
+    const addMenu = document.getElementById('add-menu');
+    const subtractMenu = document.getElementById('subtract-menu');
+    const historyPanel = document.getElementById('history-panel');
+    const myShareScreen = document.getElementById('my-share-screen');
+    
+    const balanceDisplay = document.getElementById('balance-display');
+    const addAmountInput = document.getElementById('add-amount');
+    const subtractAmountInput = document.getElementById('subtract-amount');
+    const myShareDisplay = document.getElementById('my-share-display');
+    const shareLabel = document.getElementById('share-label');
+    
+    const confirmationBoxAdd = document.getElementById('confirmation-box-add');
+    const confirmationMessageAdd = document.getElementById('confirmation-message-add');
+    const newBalanceSmallAdd = document.getElementById('new-balance-small-add');
+
+    const confirmationBoxSubtract = document.getElementById('confirmation-box-subtract');
+    const confirmationMessageSubtract = document.getElementById('confirmation-message-subtract');
+    const newBalanceSmallSubtract = document.getElementById('new-balance-small-subtract');
+    
+    const usernameSelect = document.getElementById('username-select');
+    const pinInputs = document.querySelectorAll('.pin-input');
+    const pinMessage = document.getElementById('pin-message');
+    const myShareBtn = document.getElementById('my-share-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    // --- Funciones de Utilidad ---
+    function formatCurrency(value) {
+        return value.toFixed(2).replace('.', ',') + ' €';
+    }
+
+    function renderScreen(screenElement) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('visible');
+        });
+        screenElement.classList.add('visible');
+        // Limpiar inputs y mensajes al cambiar de pantalla
+        addAmountInput.value = '';
+        subtractAmountInput.value = '';
+        confirmationBoxAdd.style.display = 'none';
+        confirmationBoxSubtract.style.display = 'none';
+        
+        if (screenElement === mainMenu) {
+             updateUI();
+        }
+    }
+    
+    function updateUI() {
+        balanceDisplay.textContent = formatCurrency(balance);
+        if (currentUser && userShares[currentUser]) {
+            myShareBtn.style.display = 'block';
+        } else {
+            myShareBtn.style.display = 'none';
+        }
+    }
+    
+    function showConfirmation(message, newBalance, isAdd) {
+        const confirmationBox = isAdd ? confirmationBoxAdd : confirmationBoxSubtract;
+        const confirmationMessage = isAdd ? confirmationMessageAdd : confirmationMessageSubtract;
+        const newBalanceSmall = isAdd ? newBalanceSmallAdd : newBalanceSmallSubtract;
+        
+        confirmationMessage.textContent = message;
+        newBalanceSmall.textContent = `Bote actualizado: ${formatCurrency(newBalance)}`;
+        confirmationBox.style.display = 'flex';
+    }
+
+    // --- Funciones de Lógica de Negocio con Firestore ---
+    async function updateBalance(amount, type) {
+        if (!db) {
+             console.error("Firebase no está inicializado.");
+             return;
+        }
+        
+        // Firestore path for the public balance document (CORREGIDO)
+        const boteRef = doc(db, boteCollectionId, boteStateDocId);
+        
+        try {
+            // Usa setDoc con merge: true para actualizar el campo sin sobrescribir el documento
+            await setDoc(boteRef, { balance: balance + amount }, { merge: true });
+            
+            // Firestore path for the transactions collection (CORREGIDO)
+            const transactionsRef = collection(db, transactionsCollectionId);
+            await addDoc(transactionsRef, {
+                amount: amount,
+                type: type,
+                user: currentUser,
+                timestamp: serverTimestamp()
+            });
+
+        } catch (error) {
+            console.error("Error al actualizar el bote:", error);
+            // Mostrar un mensaje de error al usuario si es necesario
+        }
+    }
+    
+    function handleAdd() {
+        const amount = parseFloat(addAmountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+            showConfirmation("Por favor, introduce una cantidad válida.", balance, true);
+            return;
+        }
+
+        updateBalance(amount, 'add');
+        showConfirmation(`+${formatCurrency(amount)} € añadidos.`, balance + amount, true);
+    }
+
+    function handleSubtract() {
+        const amount = parseFloat(subtractAmountInput.value);
+        if (isNaN(amount) || amount <= 0) {
+             showConfirmation("Por favor, introduce una cantidad válida.", balance, false);
+            return;
+        }
+        
+        updateBalance(-amount, 'subtract');
+        showConfirmation(`-${formatCurrency(amount)} € rectificados.`, balance - amount, false);
+    }
+
+    function renderHistory() {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = ''; // Limpiar lista
+        
+        // Sorting the transactions client-side to avoid Firestore index errors
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            const dateA = a.timestamp ? new Date(a.timestamp.seconds * 1000) : new Date();
+            const dateB = b.timestamp ? new Date(b.timestamp.seconds * 1000) : new Date();
+            return dateB - dateA;
+        });
+        
+        if (sortedTransactions.length === 0) {
+            const noHistoryItem = document.createElement('div');
+            noHistoryItem.textContent = 'No hay transacciones registradas.';
+            noHistoryItem.className = 'text-center text-gray-400 mt-4';
+            historyList.appendChild(noHistoryItem);
+        } else {
+            sortedTransactions.forEach(transaction => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                
+                const amountSpan = document.createElement('span');
+                const amountText = transaction.type === 'add' ? `+${formatCurrency(transaction.amount)}` : `-${formatCurrency(transaction.amount)}`;
+                amountSpan.textContent = amountText;
+                amountSpan.className = `history-amount ${transaction.type === 'add' ? 'positive-amount' : 'negative-amount'}`;
+                
+                const detailsSpan = document.createElement('span');
+                const date = transaction.timestamp ? new Date(transaction.timestamp.seconds * 1000) : new Date();
+                detailsSpan.innerHTML = `${date.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })} <br> por: ${transaction.user}`;
+                detailsSpan.className = 'history-date';
+
+                item.appendChild(amountSpan);
+                item.appendChild(detailsSpan);
+                historyList.appendChild(item);
+            });
+        }
+    }
+    
+    function showMyShare() {
+        if (currentUser && userShares[currentUser]) {
+            const myShare = (balance / totalShares) * userShares[currentUser];
+            myShareDisplay.textContent = formatCurrency(myShare);
+            shareLabel.classList.remove('jornada-completa', 'media-jornada');
+            
+            if (userShares[currentUser] === 2) {
+                shareLabel.textContent = "Jornada completa";
+                shareLabel.classList.add('jornada-completa');
+            } else if (userShares[currentUser] === 1) {
+                shareLabel.textContent = "Media jornada";
+                shareLabel.classList.add('media-jornada');
+            } else {
+                shareLabel.textContent = `(${userShares[currentUser]} de ${totalShares} partes)`;
+            }
+
+            renderScreen(myShareScreen);
+        }
+    }
+
+    // --- Lógica del PIN ---
+    function handlePinInput(e) {
+        const target = e.target;
+        const currentInput = parseInt(target.id.split('-')[1]);
+        if (e.data && e.data.match(/^[0-9]$/)) {
+            if (currentInput < 4) {
+                pinInputs[currentInput].focus();
+            }
+        }
+    }
+    
+    function getEnteredPin() {
+        return Array.from(pinInputs).map(input => input.value).join('');
+    }
+
+    function checkCredentials() {
+        const selectedUser = usernameSelect.value;
+        const enteredPin = getEnteredPin();
+
+        if (!selectedUser) {
+            pinMessage.textContent = "Por favor, selecciona un usuario.";
+            return;
+        }
+
+        if (userCredentials[selectedUser] === enteredPin) {
+            currentUser = selectedUser;
+            pinMessage.textContent = "";
+            renderScreen(mainMenu);
+        } else {
+            pinMessage.textContent = "PIN incorrecto. Inténtalo de nuevo.";
+            pinInputs.forEach(input => input.value = '');
+            pinInputs[0].focus();
+        }
+    }
+    
+    function logout() {
+        currentUser = null;
+        pinInputs.forEach(input => input.value = '');
+        usernameSelect.value = '';
+        renderScreen(pinScreen);
+    }
+    
+    // --- Manejadores de Eventos ---
+    window.addEventListener('load', async () => {
+        // Verificar que la configuración de Firebase no esté vacía
+        if (Object.keys(firebaseConfig).length === 0) {
+            loadingScreen.querySelector('.loading').textContent = 'Error: Por favor, pega tu configuración de Firebase en el código.';
+            console.error('La configuración de Firebase está vacía. Por favor, rellénala.');
+            return;
+        }
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            await signInAnonymously(auth);
+            
+            // Escuchar cambios de autenticación para obtener el userId y empezar a escuchar los datos
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    
+                    // Firestore path para el documento del saldo (CORREGIDO)
+                    const boteRef = doc(db, boteCollectionId, boteStateDocId);
+                    
+                    onSnapshot(boteRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            balance = docSnap.data().balance || 0;
+                            updateUI();
+                        } else {
+                            // El documento no existe, lo inicializa
+                            console.log("Documento del bote no encontrado. Creando uno nuevo.");
+                            setDoc(boteRef, { balance: 0 });
+                        }
+                    });
+                    
+                    // Firestore path para la colección de transacciones (CORREGIDO)
+                    const transactionsRef = collection(db, transactionsCollectionId);
+                    
+                    onSnapshot(transactionsRef, (snapshot) => {
+                        transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        renderHistory();
+                    });
+
+                    // Una vez autenticado y los listeners listos, muestra la pantalla del PIN
+                    renderScreen(pinScreen);
+
+                } else {
+                    // El usuario ha cerrado sesión, limpia la UI
+                    userId = null;
+                    balance = 0;
+                    transactions = [];
+                    updateUI();
+                    renderScreen(pinScreen);
+                }
+            });
+
+        } catch (error) {
+            console.error("Error al inicializar o autenticar con Firebase:", error);
+            loadingScreen.querySelector('.loading').textContent = `Error: ${error.message}`;
+        }
+    });
+
+    pinInputs.forEach(input => {
+        input.addEventListener('input', handlePinInput);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                checkCredentials();
+            }
+        });
+    });
+
+    document.getElementById('pin-enter-btn').addEventListener('click', checkCredentials);
+    document.getElementById('add-btn').addEventListener('click', () => renderScreen(addMenu));
+    document.getElementById('subtract-btn').addEventListener('click', () => renderScreen(subtractMenu));
+    document.getElementById('add-confirm-btn').addEventListener('click', handleAdd);
+    document.getElementById('subtract-confirm-btn').addEventListener('click', handleSubtract);
+    document.getElementById('add-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
+    document.getElementById('subtract-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
+    
+    document.getElementById('history-btn').addEventListener('click', () => {
+        renderHistory();
+        historyPanel.classList.add('history-panel-visible');
+    });
+    
+    document.getElementById('close-history-btn').addEventListener('click', () => {
+        historyPanel.classList.remove('history-panel-visible');
+    });
+    
+    document.getElementById('my-share-btn').addEventListener('click', showMyShare);
+    document.getElementById('my-share-back-btn').addEventListener('click', () => renderScreen(mainMenu));
+    document.getElementById('logout-btn').addEventListener('click', logout);
+</script>
+
+</body>
+</html>
