@@ -373,13 +373,26 @@
 
 <script type="module">
     // --- Importar las librerías de Firebase ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // He actualizado la versión de la librería a 12.1.0 para que coincida con tu configuración.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     // --- Variables globales proporcionadas por el entorno del Canvas ---
     // Estas variables permiten que tu app se conecte a un proyecto de Firebase específico para este entorno.
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    
+    // --- Configuración de Firebase ---
+    // He insertado aquí la configuración que me has dado.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLCVorr3G8IzrlyaTp81IjwXy7ZH-AKFE",
+      authDomain: "boteapp-6fff6.firebaseapp.com",
+      projectId: "boteapp-6fff6",
+      storageBucket: "boteapp-6fff6.firebasestorage.app",
+      messagingSenderId: "375162319169",
+      appId: "1:375162319169:web:2f3402d19984e441e171c0",
+      measurementId: "G-YBH2E8X1KM"
+    };
+    
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -641,20 +654,22 @@
     
     // --- Manejadores de Eventos ---
     window.addEventListener('load', async () => {
-        if (!firebaseConfig.apiKey) {
-            loadingScreen.querySelector('.loading').textContent = 'Error: Por favor, pega tu configuración de Firebase en el código.';
-            console.error('La configuración de Firebase está vacía. Por favor, rellénala.');
-            return;
-        }
         
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
             
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
-            } else {
+            // He actualizado la lógica para manejar el error del token personalizado.
+            // Si el inicio de sesión con el token personalizado falla, se intentará el inicio de sesión anónimo.
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (authError) {
+                console.error("Error al iniciar sesión con token personalizado, volviendo a inicio de sesión anónimo:", authError);
                 await signInAnonymously(auth);
             }
             
