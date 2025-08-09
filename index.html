@@ -289,7 +289,7 @@
     <!-- Pantalla de PIN y Usuario -->
     <div id="pin-screen" class="screen">
         <h2>Acceso al Bote</h2>
-        <span class="version-text">Versión V9</span>
+        <span class="version-text">Versión V10</span>
         <div class="input-group">
             <select id="username-select">
                 <option value="" disabled selected>Selecciona tu nombre</option>
@@ -667,6 +667,15 @@
     // --- Inicialización de Firebase ---
     async function initFirebaseAndListeners() {
         try {
+            // Verificar si la configuración de Firebase es válida antes de inicializar
+            if (!firebaseConfig.apiKey) {
+                const errorMessage = "Error: La clave de API de Firebase no se encontró. No se puede conectar a la base de datos.";
+                console.error(errorMessage);
+                loadingScreen.querySelector('.loading').textContent = errorMessage;
+                // No continuar con la inicialización de Firebase
+                return;
+            }
+
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
