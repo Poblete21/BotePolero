@@ -289,7 +289,7 @@
     <!-- Pantalla de PIN y Usuario -->
     <div id="pin-screen" class="screen">
         <h2>Acceso al Bote</h2>
-        <span class="version-text">Versión V7</span>
+        <span class="version-text">Versión V9</span>
         <div class="input-group">
             <select id="username-select">
                 <option value="" disabled selected>Selecciona tu nombre</option>
@@ -378,16 +378,7 @@
     import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     // --- Variables globales proporcionadas por el entorno del Canvas ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyDLCVorr3G8IzrlyaTp81IjwXy7ZH-AKFE",
-      authDomain: "boteapp-6fff6.firebaseapp.com",
-      projectId: "boteapp-6fff6",
-      storageBucket: "boteapp-6fff6.firebasestorage.app",
-      messagingSenderId: "375162319169",
-      appId: "1:375162319169:web:2f3402d19984e441e171c0",
-      measurementId: "G-YBH2E8X1KM"
-    };
-    
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -417,10 +408,9 @@
     let app;
     let auth;
     let db;
-    let userId;
+    let isFirebaseReady = false;
     
     // --- Rutas a las colecciones de Firestore ---
-    // ¡CORRECCIÓN CLAVE! Usando múltiples argumentos para evitar errores de path
     const boteStateDocPath = ["artifacts", appId, "public", "data", "bote", "bote-state"];
     const transactionsCollectionPath = ["artifacts", appId, "public", "data", "transactions"];
     
@@ -494,18 +484,16 @@
 
     // --- Funciones de Lógica de Negocio con Firestore ---
     async function updateBalance(amount, type) {
-        if (!db) {
-             console.error("Firebase no está inicializado.");
-             return;
+        if (!isFirebaseReady) {
+            console.error("Firebase no está listo. Abortando actualización.");
+            return;
         }
         
-        // ¡CORRECCIÓN CLAVE! Ahora se usa la ruta correcta
         const boteRef = doc(db, ...boteStateDocPath);
         
         try {
             await setDoc(boteRef, { balance: balance + amount }, { merge: true });
             
-            // ¡CORRECCIÓN CLAVE! Ahora se usa la ruta correcta
             const transactionsRef = collection(db, ...transactionsCollectionPath);
             await addDoc(transactionsRef, {
                 amount: amount,
@@ -644,13 +632,47 @@
     }
     
     // --- Manejadores de Eventos ---
-    window.addEventListener('load', async () => {
+    document.addEventListener('DOMContentLoaded', () => {
+        pinInputs.forEach(input => {
+            input.addEventListener('input', handlePinInput);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    checkCredentials();
+                }
+            });
+        });
+
+        document.getElementById('pin-enter-btn').addEventListener('click', checkCredentials);
+        document.getElementById('add-btn').addEventListener('click', () => renderScreen(addMenu));
+        document.getElementById('subtract-btn').addEventListener('click', () => renderScreen(subtractMenu));
+        document.getElementById('add-confirm-btn').addEventListener('click', handleAdd);
+        document.getElementById('subtract-confirm-btn').addEventListener('click', handleSubtract);
+        document.getElementById('add-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
+        document.getElementById('subtract-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
         
+        document.getElementById('history-btn').addEventListener('click', () => {
+            renderHistory();
+            historyPanel.classList.add('history-panel-visible');
+        });
+        
+        document.getElementById('close-history-btn').addEventListener('click', () => {
+            historyPanel.classList.remove('history-panel-visible');
+        });
+        
+        document.getElementById('my-share-btn').addEventListener('click', showMyShare);
+        document.getElementById('my-share-back-btn').addEventListener('click', () => renderScreen(mainMenu));
+        document.getElementById('logout-btn').addEventListener('click', logout);
+    });
+
+    // --- Inicialización de Firebase ---
+    async function initFirebaseAndListeners() {
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
             
+            console.log("Firebase inicializado. Autenticando...");
+
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
@@ -658,16 +680,19 @@
                     await signInAnonymously(auth);
                 }
             } catch (authError) {
-                console.error("Error al iniciar sesión con token personalizado, volviendo a inicio de sesión anónimo:", authError);
+                console.error("Error al iniciar sesión con token personalizado. Volviendo a inicio de sesión anónimo.", authError);
                 await signInAnonymously(auth);
             }
             
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    userId = user.uid;
-                    
+                    console.log("Usuario autenticado. UID:", user.uid);
+                    isFirebaseReady = true;
+
+                    // Escuchar cambios en el saldo del bote
                     const boteRef = doc(db, ...boteStateDocPath);
                     onSnapshot(boteRef, (docSnap) => {
+                        console.log("Evento onSnapshot para el saldo del bote.");
                         if (docSnap.exists()) {
                             balance = docSnap.data().balance || 0;
                             updateUI();
@@ -677,8 +702,10 @@
                         }
                     });
                     
+                    // Escuchar cambios en el historial de transacciones
                     const transactionsRef = collection(db, ...transactionsCollectionPath);
                     onSnapshot(transactionsRef, (snapshot) => {
+                        console.log("Evento onSnapshot para el historial de transacciones.");
                         transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         renderHistory();
                     });
@@ -686,10 +713,8 @@
                     renderScreen(pinScreen);
 
                 } else {
-                    userId = null;
-                    balance = 0;
-                    transactions = [];
-                    updateUI();
+                    console.warn("Usuario no autenticado. La aplicación funcionará sin acceso a la base de datos.");
+                    isFirebaseReady = false;
                     renderScreen(pinScreen);
                 }
             });
@@ -698,37 +723,10 @@
             console.error("Error al inicializar o autenticar con Firebase:", error);
             loadingScreen.querySelector('.loading').textContent = `Error: ${error.message}`;
         }
-    });
+    }
 
-    pinInputs.forEach(input => {
-        input.addEventListener('input', handlePinInput);
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                checkCredentials();
-            }
-        });
-    });
-
-    document.getElementById('pin-enter-btn').addEventListener('click', checkCredentials);
-    document.getElementById('add-btn').addEventListener('click', () => renderScreen(addMenu));
-    document.getElementById('subtract-btn').addEventListener('click', () => renderScreen(subtractMenu));
-    document.getElementById('add-confirm-btn').addEventListener('click', handleAdd);
-    document.getElementById('subtract-confirm-btn').addEventListener('click', handleSubtract);
-    document.getElementById('add-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
-    document.getElementById('subtract-cancel-btn').addEventListener('click', () => renderScreen(mainMenu));
-    
-    document.getElementById('history-btn').addEventListener('click', () => {
-        renderHistory();
-        historyPanel.classList.add('history-panel-visible');
-    });
-    
-    document.getElementById('close-history-btn').addEventListener('click', () => {
-        historyPanel.classList.remove('history-panel-visible');
-    });
-    
-    document.getElementById('my-share-btn').addEventListener('click', showMyShare);
-    document.getElementById('my-share-back-btn').addEventListener('click', () => renderScreen(mainMenu));
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    // Iniciar la aplicación cuando la ventana se carga
+    window.onload = initFirebaseAndListeners;
 </script>
 
 </body>
