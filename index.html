@@ -294,6 +294,7 @@
                 <option value="Cristobal">Cristobal</option>
                 <option value="Adrián">Adrián</option>
                 <option value="Lorena">Lorena</option>
+                <option value="Barra">Barra</option>
             </select>
         </div>
         <div class="pin-input-container">
@@ -367,28 +368,17 @@
 
 <script type="module">
     // --- Importar las librerías de Firebase ---
-    // Usamos una versión estable del SDK para evitar posibles errores de configuración.
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // --- CONFIGURACIÓN DE FIREBASE (¡AQUÍ DEBES PEGAR TU CONFIGURACIÓN!) ---
-    // Sigue estos pasos para obtener tu configuración:
-    // 1. Ve a la consola de Firebase: https://console.firebase.google.com/
-    // 2. Selecciona tu proyecto o crea uno nuevo.
-    // 3. En la página principal del proyecto, haz clic en el icono "web" (</>) para añadir una aplicación web.
-    // 4. Copia el objeto 'firebaseConfig' y pégalo aquí.
-    const firebaseConfig = {
-      apiKey: "AIzaSyDLCVorr3G8IzrlyaTp81IjwXy7ZH-AKFE",
-      authDomain: "boteapp-6fff6.firebaseapp.com",
-      projectId: "boteapp-6fff6",
-      storageBucket: "boteapp-6fff6.firebasestorage.app",
-      messagingSenderId: "375162319169",
-      appId: "1:375162319169:web:2f3402d19984e441e171c0",
-      measurementId: "G-YBH2E8X1KM"
-    };
+    // --- Variables globales proporcionadas por el entorno del Canvas ---
+    // Estas variables permiten que tu app se conecte a un proyecto de Firebase específico para este entorno.
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-    // --- Variables de estado y configuración ---
+    // --- Variables de estado y configuración de la aplicación ---
     let balance = 0;
     let transactions = [];
     const userCredentials = {
@@ -397,7 +387,8 @@
         "Israel": "1234",
         "Cristobal": "1234",
         "Adrián": "1234",
-        "Lorena": "1234"
+        "Lorena": "1234",
+        "Barra": "1234"
     };
     let currentUser = null;
     const userShares = {
@@ -407,6 +398,7 @@
         "Israel": 2,
         "Cristobal": 2,
     };
+    // El total de participaciones se ha actualizado a 9 (1+2+2+2+2)
     const totalShares = 9;
     
     // Inicializar Firebase
@@ -415,9 +407,10 @@
     let db;
     let userId;
     
-    // --- Rutas a las colecciones de nivel superior (CORREGIDO) ---
-    const boteCollectionId = "bote";
-    const transactionsCollectionId = "transactions";
+    // --- Rutas a las colecciones de Firestore ---
+    const publicDataPath = `artifacts/${appId}/public/data`;
+    const boteCollectionName = "bote";
+    const transactionsCollectionName = "transactions";
     const boteStateDocId = "bote-state";
 
     // --- Elementos del DOM ---
@@ -472,6 +465,8 @@
     
     function updateUI() {
         balanceDisplay.textContent = formatCurrency(balance);
+        // Si el usuario actual tiene una participación, muestra el botón "Mi parte".
+        // Si no, lo oculta. Esto soluciona el problema de "Barra" y "Lorena".
         if (currentUser && userShares[currentUser]) {
             myShareBtn.style.display = 'block';
         } else {
@@ -496,15 +491,12 @@
              return;
         }
         
-        // Firestore path for the public balance document (CORREGIDO)
-        const boteRef = doc(db, boteCollectionId, boteStateDocId);
+        const boteRef = doc(db, publicDataPath, boteCollectionName, boteStateDocId);
         
         try {
-            // Usa setDoc con merge: true para actualizar el campo sin sobrescribir el documento
             await setDoc(boteRef, { balance: balance + amount }, { merge: true });
             
-            // Firestore path for the transactions collection (CORREGIDO)
-            const transactionsRef = collection(db, transactionsCollectionId);
+            const transactionsRef = collection(db, publicDataPath, transactionsCollectionName);
             await addDoc(transactionsRef, {
                 amount: amount,
                 type: type,
@@ -542,9 +534,8 @@
 
     function renderHistory() {
         const historyList = document.getElementById('history-list');
-        historyList.innerHTML = ''; // Limpiar lista
+        historyList.innerHTML = '';
         
-        // Sorting the transactions client-side to avoid Firestore index errors
         const sortedTransactions = [...transactions].sort((a, b) => {
             const dateA = a.timestamp ? new Date(a.timestamp.seconds * 1000) : new Date();
             const dateB = b.timestamp ? new Date(b.timestamp.seconds * 1000) : new Date();
@@ -595,6 +586,9 @@
             }
 
             renderScreen(myShareScreen);
+        } else {
+            // Si el usuario no tiene participación, lo redirige al menú principal.
+            renderScreen(mainMenu);
         }
     }
 
@@ -642,8 +636,7 @@
     
     // --- Manejadores de Eventos ---
     window.addEventListener('load', async () => {
-        // Verificar que la configuración de Firebase no esté vacía
-        if (Object.keys(firebaseConfig).length === 0) {
+        if (!firebaseConfig.apiKey) {
             loadingScreen.querySelector('.loading').textContent = 'Error: Por favor, pega tu configuración de Firebase en el código.';
             console.error('La configuración de Firebase está vacía. Por favor, rellénala.');
             return;
@@ -654,40 +647,38 @@
             auth = getAuth(app);
             db = getFirestore(app);
             
-            await signInAnonymously(auth);
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
             
-            // Escuchar cambios de autenticación para obtener el userId y empezar a escuchar los datos
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     userId = user.uid;
                     
-                    // Firestore path para el documento del saldo (CORREGIDO)
-                    const boteRef = doc(db, boteCollectionId, boteStateDocId);
+                    const boteRef = doc(db, publicDataPath, boteCollectionName, boteStateDocId);
                     
                     onSnapshot(boteRef, (docSnap) => {
                         if (docSnap.exists()) {
                             balance = docSnap.data().balance || 0;
                             updateUI();
                         } else {
-                            // El documento no existe, lo inicializa
                             console.log("Documento del bote no encontrado. Creando uno nuevo.");
                             setDoc(boteRef, { balance: 0 });
                         }
                     });
                     
-                    // Firestore path para la colección de transacciones (CORREGIDO)
-                    const transactionsRef = collection(db, transactionsCollectionId);
+                    const transactionsRef = collection(db, publicDataPath, transactionsCollectionName);
                     
                     onSnapshot(transactionsRef, (snapshot) => {
                         transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         renderHistory();
                     });
 
-                    // Una vez autenticado y los listeners listos, muestra la pantalla del PIN
                     renderScreen(pinScreen);
 
                 } else {
-                    // El usuario ha cerrado sesión, limpia la UI
                     userId = null;
                     balance = 0;
                     transactions = [];
