@@ -289,7 +289,7 @@
     <!-- Pantalla de PIN y Usuario -->
     <div id="pin-screen" class="screen">
         <h2>Acceso al Bote</h2>
-        <span class="version-text">Versión V6</span>
+        <span class="version-text">Versión V7</span>
         <div class="input-group">
             <select id="username-select">
                 <option value="" disabled selected>Selecciona tu nombre</option>
@@ -419,12 +419,11 @@
     let db;
     let userId;
     
-    // --- Rutas a las colecciones de Firestore (ahora son públicas) ---
-    const publicDataPath = `artifacts/${appId}/public/data`;
-    const boteCollectionName = "bote";
-    const transactionsCollectionName = "transactions";
-    const boteStateDocId = "bote-state";
-
+    // --- Rutas a las colecciones de Firestore ---
+    // ¡CORRECCIÓN CLAVE! Usando múltiples argumentos para evitar errores de path
+    const boteStateDocPath = ["artifacts", appId, "public", "data", "bote", "bote-state"];
+    const transactionsCollectionPath = ["artifacts", appId, "public", "data", "transactions"];
+    
     // --- Elementos del DOM ---
     const loadingScreen = document.getElementById('loading-screen');
     const pinScreen = document.getElementById('pin-screen');
@@ -464,7 +463,6 @@
             screen.classList.remove('visible');
         });
         screenElement.classList.add('visible');
-        // Limpiar inputs y mensajes al cambiar de pantalla
         addAmountInput.value = '';
         subtractAmountInput.value = '';
         confirmationBoxAdd.style.display = 'none';
@@ -501,13 +499,14 @@
              return;
         }
         
-        // Se asegura de que se esté usando la ruta de colección pública
-        const boteRef = doc(db, `${publicDataPath}/${boteCollectionName}/${boteStateDocId}`);
+        // ¡CORRECCIÓN CLAVE! Ahora se usa la ruta correcta
+        const boteRef = doc(db, ...boteStateDocPath);
         
         try {
             await setDoc(boteRef, { balance: balance + amount }, { merge: true });
             
-            const transactionsRef = collection(db, `${publicDataPath}/${transactionsCollectionName}`);
+            // ¡CORRECCIÓN CLAVE! Ahora se usa la ruta correcta
+            const transactionsRef = collection(db, ...transactionsCollectionPath);
             await addDoc(transactionsRef, {
                 amount: amount,
                 type: type,
@@ -667,9 +666,7 @@
                 if (user) {
                     userId = user.uid;
                     
-                    // Ahora se utiliza una ruta pública para que todos los usuarios accedan a la misma información
-                    const boteRef = doc(db, `${publicDataPath}/${boteCollectionName}/${boteStateDocId}`);
-                    
+                    const boteRef = doc(db, ...boteStateDocPath);
                     onSnapshot(boteRef, (docSnap) => {
                         if (docSnap.exists()) {
                             balance = docSnap.data().balance || 0;
@@ -680,9 +677,7 @@
                         }
                     });
                     
-                    // Se utiliza una ruta pública para que todos los usuarios vean el mismo historial
-                    const transactionsRef = collection(db, `${publicDataPath}/${transactionsCollectionName}`);
-                    
+                    const transactionsRef = collection(db, ...transactionsCollectionPath);
                     onSnapshot(transactionsRef, (snapshot) => {
                         transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         renderHistory();
