@@ -211,7 +211,7 @@
             color: #4ade80;
         }
         
-        .negative-amount {
+.negative-amount {
             color: #ef4444;
         }
         
@@ -376,10 +376,20 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    // Nota: Se ha añadido el import para analytics, aunque no se usa en este código.
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
 
     // --- Variables globales proporcionadas por el entorno del Canvas ---
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    // La configuración de Firebase ahora se ha puesto de forma manual.
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLCVorr3G8IzrlyaTp81IjwXy7ZH-AKFE",
+      authDomain: "boteapp-6fff6.firebaseapp.com",
+      projectId: "boteapp-6fff6",
+      storageBucket: "boteapp-6fff6.firebasestorage.app",
+      messagingSenderId: "375162319169",
+      appId: "1:375162319169:web:2f3402d19984e441e171c0",
+      measurementId: "G-YBH2E8X1KM"
+    };
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     // --- Variables de estado y configuración de la aplicación ---
@@ -667,31 +677,18 @@
     // --- Inicialización de Firebase ---
     async function initFirebaseAndListeners() {
         try {
-            // Verificar si la configuración de Firebase es válida antes de inicializar
-            if (!firebaseConfig.apiKey) {
-                const errorMessage = "Error: La clave de API de Firebase no se encontró. No se puede conectar a la base de datos.";
-                console.error(errorMessage);
-                loadingScreen.querySelector('.loading').textContent = errorMessage;
-                // No continuar con la inicialización de Firebase
-                return;
-            }
-
+            // Se ha eliminado la comprobación de la clave de API ya que ahora está codificada de forma rígida
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
+            // Esto solo es necesario si se implementan analíticas.
+            // const analytics = getAnalytics(app);
             
             console.log("Firebase inicializado. Autenticando...");
 
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (authError) {
-                console.error("Error al iniciar sesión con token personalizado. Volviendo a inicio de sesión anónimo.", authError);
-                await signInAnonymously(auth);
-            }
+            // Se ha eliminado la llamada a signInWithCustomToken para evitar el error de token personalizado.
+            // Ahora la aplicación solo se autentica de forma anónima, que es lo que el entorno soporta.
+            await signInAnonymously(auth);
             
             onAuthStateChanged(auth, (user) => {
                 if (user) {
